@@ -1,5 +1,5 @@
 // Кэш приложения для работы без интернета. Версия меняется при каждой сборке.
-const CACHE = 'hyrox-202611062218';
+const CACHE = 'hyrox-202611071254';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
