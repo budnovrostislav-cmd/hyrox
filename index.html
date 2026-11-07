@@ -527,6 +527,11 @@ function dayPlan(d){
   else if(idx===5){p.kind='strength';p.title='Сила C';p.sess='C';}
   else{p.kind='run';p.title='Бег';p.run=r.fri;p.items.push({t:'10:30–11:10',k:'run',b:runName(r.fri),d:r.fri[1]});}
   if(p.sess){var si=SESS_INFO[p.sess];p.items.push({t:si.time,k:'train',b:'Сила '+p.sess+' · '+SESS[p.sess].title,d:sessionPlan(p.sess,nn).length+' упражнений, '+si.dur+' · '+si.tip});}
+  var ov=(!p.pre&&!p.after)?S.data.days[ds(d)]:null;
+  if(ov&&ov.skip&&(p.sess||p.run)){p.skipped=true;p.movedTo=ov.movedTo||null;p.planTitle=p.title;p.sess=null;p.run=null;p.items=[];p.kind='rest';p.title=p.movedTo?'Перенесено':'Отменено';p.text=p.movedTo?p.planTitle+' — перенесено на '+dRef(pd(p.movedTo))+'.':p.planTitle+' — отменено.';}
+  if(ov&&ov.extra&&!(p.sess||p.run)){var ex=ov.extra,t0=ex.time||'15:00';p.moved=true;p.movedFrom=ex.from;p.sess=ex.sess||null;p.run=ex.run||null;p.week=ex.week||p.week;p.title=ex.title||'Тренировка';p.kind=p.sess&&p.run?'both':(p.sess?'strength':'run');p.text='Перенесено с '+dRef(pd(ex.from))+'.';
+    if(p.run)p.items.push({t:t0,k:'run',b:runName(p.run),d:p.run[1]});
+    if(p.sess){var si2=SESS_INFO[p.sess];p.items.push({t:p.run?addMinT(t0,30):t0,k:'train',b:'Сила '+p.sess+' · '+SESS[p.sess].title,d:sessionPlan(p.sess,p.week).length+' упражнений, '+si2.dur});}}
   if(p.pre||p.after){p.items=[];p.sess=null;p.run=null;p.title=p.pre?'До старта':p.title;}
   if(sh)p.items.push({t:shiftTxt(sh),k:'work',b:'Смена',d:''});
   p.items.sort(function(a,b){return tm(a.t)-tm(b.t);});
@@ -539,7 +544,7 @@ function tm(t){var m=/^(\d{1,2}):(\d{2})/.exec(t||'');return m?Number(m[1])*60+N
 function R(t,k,b,d,m){return {t:t,k:k,b:b,d:d||'',m:m!=null?m:tm(t)};}
 function routine(d){
   var p=dayPlan(d),idx=wIdx(d),se=STUDY_END[idx],sh=p.shift,out=[];
-  var trainItem=p.items.filter(function(x){return x.k==='train';})[0],runItem=p.items.filter(function(x){return x.k==='run';})[0];
+  var trainItem=p.items.filter(function(x){return x.k==='train';})[0],runItem=p.items.filter(function(x){return x.k==='run';})[0],base=!p.moved;
   function morningWeekday(extra){
     out.push(R('6:30','rec','Подъём',extra||'Вес натощак, стакан воды.'));
     out.push(R('6:40–7:10','trade','Трейдинг','Анализ графиков, зоны интереса, алерты. Таймер 30 минут.'));
@@ -561,7 +566,7 @@ function routine(d){
     morningWeekday('После воскресной смены ночь короткая — днём доспишь 20 минут.');
     out.push(R('13:15','food','Обед'));
     out.push(R('13:45–14:15','rec','Дневной сон 20 минут','Будильник на 25 минут.'));
-    if(p.sess)out.push(trainLine('15:00–16:30'));
+    if(base&&p.sess)out.push(trainLine('15:00–16:30'));
     out.push(R('17:00','food',p.sess?'Еда после тренировки':'Перекус'));
     out.push(R('19:00','food','Ужин'));
     out.push(R('19:30–20:30','food','Заготовка еды на вт – пт','Обеды на 4 дня и контейнеры на смены. Пятничные — в морозилку.'));
@@ -570,7 +575,7 @@ function routine(d){
     out.push(R('22:30','sleep','Сон','8 часов до подъёма.'));
   } else if(idx===1){
     morningWeekday();
-    if(p.run)out.push(runLine(p.week===1?'13:15–14:05':'13:15–13:50'));
+    if(base&&p.run)out.push(runLine(p.week===1?'13:15–14:05':'13:15–13:50'));
     out.push(R('14:15','food','Обед','Самый большой приём дня.'));
     out.push(R('14:40–15:10','eng','Английский, 30 минут'));
     if(sh){goWork('15:15','15:30');homeLate(tm(sh[1])||1440);out.push(R('23:00','sleep','Сон','7,5 часа до подъёма.'));}
@@ -579,8 +584,8 @@ function routine(d){
     morningWeekday();
     out.push(R('14:15','food','Обед','За 1,5–2 часа до тренировки.'));
     out.push(R('14:45–15:15','eng','Английский, 30 минут'));
-    if(p.run)out.push(runLine('16:00–16:25'));
-    if(p.sess)out.push(trainLine('16:30–17:30'));
+    if(base&&p.run)out.push(runLine('16:00–16:25'));
+    if(base&&p.sess)out.push(trainLine('16:30–17:30'));
     out.push(R('17:45','food','Еда после тренировки','Творог, банан, мёд — в течение часа.'));
     out.push(R('19:00','food','Ужин'));
     out.push(R('19:30–20:15','math','Математика'));
@@ -607,7 +612,7 @@ function routine(d){
     out.push(R('8:00','rec','Подъём','Вес, стакан воды. Если вчера была смена — в 8:30.'));
     out.push(R('8:30','food','Завтрак'));
     out.push(R('8:45–9:30','trade','Трейдинг','Недельный анализ, зоны, алерты.'));
-    if(p.sess)out.push(trainLine('10:30–12:00'));
+    if(base&&p.sess)out.push(trainLine('10:30–12:00'));
     out.push(R('12:15–13:00','food','Заготовка еды на сб – пн','Обеды на 3 дня и по 2 контейнера на смены в субботу и воскресенье.'));
     out.push(R('13:00','food','Обед после тренировки'));
     out.push(R('13:30–14:10','rec','Отдых перед сменой','Английского сегодня нет.'));
@@ -616,13 +621,14 @@ function routine(d){
     out.push(R('8:30','rec','Подъём','Вес, стакан воды.'));
     out.push(R('8:45','food','Завтрак'));
     out.push(R('9:15–10:00','trade','Трейдинг','План на неделю, алерты.'));
-    if(p.run)out.push(runLine('10:30–11:10'));
+    if(base&&p.run)out.push(runLine('10:30–11:10'));
     out.push(R('11:15','rec','Душ и растяжка, 10 минут'));
     out.push(R('12:30','food','Обед'));
     out.push(R('13:00–13:20','rec','Итоги недели','Средний вес, тренировки, сон — и отчёт тренеру.'));
     out.push(R('13:30–14:00','eng','Английский, 30 минут'));
     if(sh){goWork('14:15','14:30');homeLate(tm(sh[1]));out.push(R('00:00','sleep','Сон','Ночь короткая — в понедельник дневной сон.',1440));}
   }
+  if(p.moved)p.items.forEach(function(x){if(x.k==='train'||x.k==='run')out.push(R(x.t,x.k,x.b,x.d));});
   if(p.pre||p.after)out=out.filter(function(x){return x.k!=='train'&&x.k!=='run';});
   return out.sort(function(a,b){return a.m-b.m;});
 }
@@ -630,6 +636,7 @@ function routine(d){
 function dayStatus(d){
   var k=ds(d),p=dayPlan(d),today=ds(new Date());
   var hasW=doneWorkouts().some(function(w){return w.date===k;}),hasR=allRuns().some(function(r){return r.date===k;});
+  if(p.skipped&&!hasW&&!hasR)return 'skip';
   if(p.pre||p.after||(!p.sess&&!p.run))return (hasW||hasR)?'done':'rest';
   var need=(p.sess?1:0)+(p.run?1:0),got=(p.sess&&hasW?1:0)+(p.run&&hasR?1:0);
   if(got>=need)return 'done';
@@ -644,7 +651,7 @@ var COLLS=['meta','days','workouts','runs','hyrox'];
 var S={db:null,mode:'local',loaded:{},offline:false,data:{meta:{},days:{},workouts:{},runs:{},hyrox:{}},pend:{},cacheReady:false};
 function loadCache(){var c=lsGet('hxapp.v1',null);if(c&&c.data){COLLS.forEach(function(k){if(c.data[k])S.data[k]=c.data[k];});S.cacheReady=true;}}
 var cacheT=null;function saveCache(){clearTimeout(cacheT);cacheT=setTimeout(function(){lsSet('hxapp.v1',{data:S.data,at:Date.now()});},300);}
-function put(c,id,body){if(body==null)delete S.data[c][id];else S.data[c][id]=body;saveCache();queueWrite(c,id);requestRender();}
+function put(c,id,body){if(body==null)delete S.data[c][id];else S.data[c][id]=body;saveCache();queueWrite(c,id);requestRender();queuePushSync();}
 function edit(c,id,fn,init){var b=clone(S.data[c][id]);if(!b)b=init?init():{};fn(b);b.updatedAt=Date.now();put(c,id,b);}
 function queueWrite(c,id){var k=c+'/'+id;var p=S.pend[k]||(S.pend[k]={});clearTimeout(p.t);p.t=setTimeout(function(){p.t=null;flush(c,id);},500);}
 function flush(c,id){
@@ -667,7 +674,7 @@ function subscribe(){
     S.db.collection(c).onSnapshot(function(snap){
       var obj={};snap.docs.forEach(function(d){obj[d.id]=d.data();});
       Object.keys(S.pend).forEach(function(k){var i=k.indexOf('/');if(k.slice(0,i)!==c)return;var id=k.slice(i+1);if(S.pend[k].t){if(S.data[c][id]===undefined)delete obj[id];else obj[id]=S.data[c][id];}});
-      S.data[c]=obj;if(!snap.metadata.fromCache){S.loaded[c]=true;if(COLLS.every(function(x){return S.loaded[x];}))S.offline=false;}
+      S.data[c]=obj;if(!snap.metadata.fromCache){S.loaded[c]=true;if(COLLS.every(function(x){return S.loaded[x];})){S.offline=false;if(!S.cleaned){S.cleaned=true;setTimeout(cleanupWorkouts,0);}}}
       updateStatus();saveCache();requestRender();
     },function(e){dbError(e,false);S.offline=true;updateStatus();});
   });
@@ -767,7 +774,7 @@ function bar(v,t,cls){var pc=t?Math.min(100,Math.round(v/t*100)):0;return '<div 
 function metric(label,v,t,unit,cls){return '<div class="metric"><div class="row between"><span class="small">'+label+'</span><span class="mono small">'+v+(t?' / '+t:'')+' '+unit+'</span></div>'+bar(v,t,cls)+'</div>';}
 function runTag(r){return r?'<span class="pill sc t-run">'+(RUNTYPES[r[0]]||'Бег')+'</span> <span class="small">'+esc(r[1])+'</span>':'';}
 function tlRow(it,cls){return '<div class="tl-r k-'+it.k+(cls?' '+cls:'')+'"><div class="tl-t">'+esc(it.t)+'</div><div class="tl-w"><b>'+esc(it.b)+'</b>'+(it.d?'<div class="d">'+esc(it.d)+'</div>':'')+'</div></div>';}
-function daySub(p){var a=p.items.filter(function(x){return x.k!=='work';}).map(function(x){return x.t.split('–')[0];});var s=a.length?a.join(' и ')+' · ':'';return s+(p.shift?'смена '+shiftTxt(p.shift):(p.shiftOpt?'смена — если работаешь':'без смены'));}
+function daySub(p){if(p.skipped)return (p.movedTo?'перенесено на '+dRef(pd(p.movedTo)):'отменено')+' · '+(p.shift?'смена '+shiftTxt(p.shift):'без смены');var a=p.items.filter(function(x){return x.k!=='work';}).map(function(x){return x.t.split('–')[0];});var s=a.length?a.join(' и ')+' · ':'';return s+(p.shift?'смена '+shiftTxt(p.shift):(p.shiftOpt?'смена — если работаешь':'без смены'));}
 function nowMin(){var n=new Date();return n.getHours()*60+n.getMinutes();}
 /* Текущий шаг распорядка — последний начавшийся; следующий — первый после него */
 function nowIdx(list){var m=nowMin(),i=-1;list.forEach(function(x,j){if(x.m<=m)i=j;});return i;}
@@ -785,11 +792,13 @@ function workToggle(k,p){
 
 /* ---------- Сегодня ---------- */
 function scrHome(){
-  var act=activeWorkout();if(act)return scrActive(act);
+  var act=activeWorkout();if(act&&ui.inWorkout)return scrActive(act);
   var now=new Date(),d=ds(now),plan=dayPlan(now),day=dayDoc(d),t=dayTotals(day),tg=targets();
   var h=topbar('Сегодня',dLong(now),'<button class="iconbtn" data-act="settings" aria-label="Профиль и настройки">'+ICON.gear+'</button>');
   h+='<button class="cyc" data-act="tab" data-tab="plan" aria-label="Открыть план">'+cycleLine(now)+ICON.right+'</button>';
   h+='<div class="stack">';
+  if(act){var tot=0,dn=0;(act.exercises||[]).forEach(function(ex){(ex.sets||[]).forEach(function(x){tot++;if(x.done)dn++;});});h+='<div class="card hero t-train"><span class="pill sc t-train">Тренировка не завершена</span><h3 style="margin-top:10px">'+esc(act.title)+'</h3><div class="small muted" style="margin-top:4px">Начата '+dShort(pd(act.date))+' · подходов '+dn+' из '+tot+'. Начал случайно — отмени, в статистику она не попадёт.</div><div class="grid2" style="margin-top:12px"><button class="btn t-train" data-act="wresume">Продолжить</button><button class="btn danger" data-act="wcancel">Отменить</button></div></div>';}
+  h+=notifyNudge();
   if(!tg)h+='<div class="card hero t-food"><h3>Заполни профиль</h3><p class="small muted">Вес, рост и возраст — посчитаю норму калорий, белков, жиров и углеводов.</p><button class="btn full t-food" data-act="settings">Открыть профиль</button></div>';
   var lastExp=lsGet('hxapp.lastExport',0);var hasData=Object.keys(S.data.days).length+Object.keys(S.data.workouts).length+Object.keys(S.data.runs).length>0;
   if(S.mode==='local'&&hasData&&Date.now()-lastExp>7*DAY)h+='<div class="card hero t-food"><h3>Резервная копия</h3><p class="small muted">Данные хранятся только на этом iPhone. Сохрани копию в «Файлы» — это 10 секунд.</p><button class="btn full t-food" data-act="export">Сохранить копию</button></div>';
@@ -840,6 +849,7 @@ function todayCard(now,plan,day,rt){
   if(plan.sess&&!dw.length)btns+='<button class="btn full t-train" data-act="startw" data-sess="'+plan.sess+'">Начать Силу '+plan.sess+'</button>';
   if(plan.run&&!dr.length)btns+='<button class="btn full '+(plan.sess&&!dw.length?'ghost':'t-run')+'" data-act="runadd">Записать пробежку</button>';
   if(btns)h+='<div class="stack" style="margin-top:12px;gap:8px">'+btns+'</div>';
+  h+=planCtl(d,plan);
   h+='<button class="linkbtn" data-act="otherw">'+(training?'Другая тренировка':'Всё же потренироваться')+'</button>';
   return h+'</div>';
 }
@@ -849,7 +859,7 @@ function weekStrip(now){
     var dd=addDays(mon,i),k=ds(dd),p=dayPlan(dd),st=dayStatus(dd);
     var letter=p.sess||(p.run?'Б':'—');
     var cls=p.sess?'t-train':(p.run?'t-run':'t-rec');
-    var dot={done:'done',part:'plan',plan:'plan',miss:'miss',rest:''}[st];
+    var dot={done:'done',part:'plan',plan:'plan',miss:'miss',rest:'',skip:''}[st];
     h+='<div class="wd '+cls+(k===ds(now)?' today':'')+'"><span>'+WD[i]+'</span><b>'+dd.getDate()+'</b><span class="dot '+dot+'">'+(st==='done'?'✓':letter)+'</span></div>';
   }
   return h+'</div>';
@@ -861,6 +871,7 @@ function stIcon(st){
   if(st==='part')return '<span class="st part" aria-label="частично">½</span>';
   if(st==='plan')return '<span class="st plan" aria-label="по плану"></span>';
   if(st==='miss')return '<span class="st miss" aria-label="пропущено">×</span>';
+  if(st==='skip')return '<span class="st" aria-label="перенесено или отменено">↷</span>';
   return '<span class="st" aria-label="без тренировки">—</span>';
 }
 function scrPlan(){
@@ -906,6 +917,7 @@ function dayBody(k){
   var b='<div class="stack" data-day="'+k+'">';
   if(p.text)b+='<p class="small muted" style="margin:0">'+esc(p.text)+'</p>';
   b+=workToggle(k,p).replace('margin-top:12px','margin-top:0');
+  b+=planCtl(k,p).replace('margin-top:12px','margin-top:0').replace('margin-top:10px','margin-top:0');
   if(p.sess){var items=sessionPlan(p.sess,p.week);b+='<div><div class="lbl">Сила '+p.sess+' · '+SESS[p.sess].title+' · нажми на упражнение — покажу технику</div><div>'+items.map(function(it,i){return '<button class="exline" data-act="tech" data-ex="'+it.exId+'"><span>'+(i+1)+'. '+esc(EX[it.exId].name)+'</span><span class="mono muted">'+esc(it.sets)+'</span></button>';}).join('')+'</div></div>';}
   if(p.run)b+='<div><div class="lbl">Бег</div><div class="note small">'+runTag(p.run)+'<div class="muted" style="margin-top:6px">'+esc(RUN_HOW[p.run[0]]||'')+'</div></div></div>';
   var dw=doneWorkouts().filter(function(w){return w.date===k;}),dr=allRuns().filter(function(r){return r.date===k;});
@@ -930,7 +942,7 @@ function sheetOther(){
 function firstOpen(exs){for(var i=0;i<exs.length;i++){if((exs[i].sets||[]).some(function(s){return !s.done;}))return i;}return -1;}
 function startWorkout(L){
   if(activeWorkout()){toast('Сначала заверши текущую тренировку.');tab='home';render();return;}
-  var now=new Date(),n=Math.min(Math.max(progWeek(now),1),12),id=uid();
+  var now=new Date(),tp=dayPlan(now),n=tp.sess===L?tp.week:Math.min(Math.max(progWeek(now),1),12),id=uid();
   var exs=[];
   if(L!=='free'){
     sessionPlan(L,n).forEach(function(it){
@@ -940,14 +952,14 @@ function startWorkout(L){
     });
   }
   var body={id:id,date:ds(now),session:L,week:n,title:L==='free'?'Своя тренировка':'Сила '+L+' · '+SESS[L].title,status:'active',startedAt:Date.now(),exercises:exs};
-  ui.exOpen=null;put('workouts',id,body);tab='home';lsSet('hxapp.tab',tab);render();window.scrollTo(0,0);
+  ui.exOpen=null;ui.inWorkout=true;put('workouts',id,body);tab='home';lsSet('hxapp.tab',tab);render();window.scrollTo(0,0);
   try{if(navigator.wakeLock)navigator.wakeLock.request('screen').catch(function(){});}catch(e){}
 }
 function scrActive(wk){
   var mins=Math.round((Date.now()-wk.startedAt)/60000),exs=wk.exercises||[];
   var doneCount=0,total=0;exs.forEach(function(ex){(ex.sets||[]).forEach(function(s){total++;if(s.done)doneCount++;});});
   var open=(ui.exOpen!=null&&ui.exOpen<exs.length)?ui.exOpen:firstOpen(exs);
-  var h='<div class="wk-head">'+topbar(esc(wk.title),'<span id="wk-min">'+mins+'</span> мин · подходов '+doneCount+' из '+total)+'<div class="wbar"><i style="width:'+(total?Math.round(doneCount/total*100):0)+'%"></i></div></div>';
+  var h='<div class="wk-head">'+topbar(esc(wk.title),'<span id="wk-min">'+mins+'</span> мин · подходов '+doneCount+' из '+total,'<button class="btn sm ghost" data-act="wmin">Свернуть</button>')+'<div class="wbar"><i style="width:'+(total?Math.round(doneCount/total*100):0)+'%"></i></div></div>';
   h+='<div class="stack">';
   if(weekObj(wk.week||1).dl&&wk.session!=='free')h+='<div class="note small">Облегчённая неделя: подходов уже меньше, вес на 10% ниже, заканчивай подход с запасом 4 повтора.</div>';
   if(!exs.length)h+='<div class="empty">Добавь первое упражнение кнопкой ниже.</div>';
@@ -1083,7 +1095,7 @@ var sheetOnClose=null;
 function openSheet(title,body,onClose){sheetOnClose=onClose||null;$('#sheet-root').innerHTML='<div class="sheet-wrap" data-act="sclose"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="'+esc(title)+'"><div class="sheet-grab"></div><div class="sheet-h"><h3>'+esc(title)+'</h3><button class="iconbtn" data-act="sclose" aria-label="Закрыть">'+ICON.close+'</button></div><div id="sheet-body">'+body+'</div></div>';}
 function setSheetBody(body){var b=$('#sheet-body');if(b)b.innerHTML=body;}
 function closeSheet(){$('#sheet-root').innerHTML='';var f=sheetOnClose;sheetOnClose=null;if(f)f();if(renderPending){renderPending=false;}render();}
-function confirmSheet(title,text,yesLabel,onYes){openSheet(title,'<p>'+esc(text)+'</p><div class="grid2"><button class="btn ghost" data-act="sclose">Отмена</button><button class="btn danger" data-act="confirmyes">'+esc(yesLabel)+'</button></div>');pendingConfirm=onYes;}
+function confirmSheet(title,text,yesLabel,onYes,cls){openSheet(title,'<p>'+esc(text)+'</p><div class="grid2"><button class="btn ghost" data-act="sclose">Назад</button><button class="btn '+(cls||'danger')+'" data-act="confirmyes">'+esc(yesLabel)+'</button></div>');pendingConfirm=onYes;}
 var pendingConfirm=null;
 function toast(msg){var r=$('#toast-root');r.innerHTML='<div class="toast" role="status">'+esc(msg)+'</div>';clearTimeout(toast.t);toast.t=setTimeout(function(){r.innerHTML='';},3200);}
 
@@ -1091,7 +1103,7 @@ function sheetTech(exId){var e=EX[exId];if(!e)return;openSheet(e.name,'<p class=
 
 function sheetSettings(){
   var p=profile()||{};var tg=p.targets||{};
-  var body='<div class="stack"><div class="lbl">Профиль</div><div class="grid3"><div class="field"><label for="pf-w">Вес, кг</label><input class="in" id="pf-w" inputmode="decimal" value="'+(p.weight!=null?fkg(p.weight):'')+'"></div><div class="field"><label for="pf-h">Рост, см</label><input class="in" id="pf-h" inputmode="numeric" value="'+(p.height||'')+'"></div><div class="field"><label for="pf-a">Возраст</label><input class="in" id="pf-a" inputmode="numeric" value="'+(p.age||'')+'"></div></div>'+
+  var body='<div class="stack">'+notifyHtml()+'<div class="lbl" style="margin-top:8px">Профиль</div><div class="grid3"><div class="field"><label for="pf-w">Вес, кг</label><input class="in" id="pf-w" inputmode="decimal" value="'+(p.weight!=null?fkg(p.weight):'')+'"></div><div class="field"><label for="pf-h">Рост, см</label><input class="in" id="pf-h" inputmode="numeric" value="'+(p.height||'')+'"></div><div class="field"><label for="pf-a">Возраст</label><input class="in" id="pf-a" inputmode="numeric" value="'+(p.age||'')+'"></div></div>'+
    '<div class="field"><label for="pf-act">Нагрузка</label><select class="in" id="pf-act">'+[['1.55','Мало смен, 3–4 тренировки'],['1.7','4 смены + 6 тренировок'],['1.8','5–6 тренировок + смены']].map(function(o){return '<option value="'+o[0]+'"'+(String(p.activity||'1.7')===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></div>'+
    '<div class="field"><label for="pf-goal">Цель</label><select class="in" id="pf-goal">'+[['100','Набор мышц (+100–150 ккал)'],['0','Поддержание']].map(function(o){return '<option value="'+o[0]+'"'+(String(p.goal!=null?p.goal:'100')===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></div>'+
    '<button class="btn ghost full" data-act="pfcalc">Рассчитать норму</button><div id="pf-calc"></div>'+
@@ -1165,13 +1177,171 @@ function sheetAddEx(){
   var keys=Object.keys(EX);openSheet('Добавить упражнение','<div class="list">'+keys.map(function(k){return '<button class="item" data-act="addexpick" data-ex="'+k+'"><div class="grow"><div class="t">'+esc(EX[k].name)+'</div><div class="d">'+esc(EX[k].why)+'</div></div></button>';}).join('')+'</div>');
 }
 
+/* ================= Перенос и отмена тренировок ================= */
+function dWd(d){return WDF[wIdx(d)].toLowerCase()+', '+dShort(d);}
+function dRef(d){return dShort(d)+' ('+WD[wIdx(d)].toLowerCase()+')';}
+function addMinT(t,min){var m=tm(t)+min;return pad(Math.floor(m/60)%24)+':'+pad(m%60);}
+function timeOpts(sel,from,to){var a=tm(from),b=tm(to),o='',has=false;for(var m=a;m<=b;m+=30){var v=pad(Math.floor(m/60))+':'+pad(m%60);if(v===sel)has=true;o+='<option'+(v===sel?' selected':'')+'>'+v+'</option>';}if(sel&&!has)o='<option selected>'+sel+'</option>'+o;return o;}
+/* Кнопки под тренировкой дня: перенести, отменить, вернуть */
+function planCtl(k,p){
+  if(k<ds(new Date())||p.pre||p.after)return '';
+  if(p.skipped)return '<button class="btn sm ghost full" style="margin-top:12px" data-act="unskip" data-d="'+k+'">Вернуть тренировку по плану</button>';
+  if(p.moved)return '<button class="btn sm ghost full" style="margin-top:12px" data-act="unmove" data-d="'+k+'">Вернуть на '+dRef(pd(p.movedFrom))+'</button>';
+  if((p.sess||p.run)&&dayStatus(pd(k))!=='done')return '<div class="grid2" style="margin-top:10px"><button class="btn sm ghost" data-act="mvopen" data-d="'+k+'">Перенести</button><button class="btn sm ghost" data-act="skipday" data-d="'+k+'">Отменить</button></div>';
+  return '';
+}
+function sheetMove(k){
+  var p=dayPlan(pd(k)),todayK=ds(new Date()),first=p.items.filter(function(x){return x.k!=='work';})[0],t0=first?first.t.split('–')[0]:'15:00';
+  var start=pd(todayK>ds(START)?todayK:ds(START)),opts='';
+  for(var i=0;i<10;i++){
+    var d2=addDays(start,i),k2=ds(d2);if(k2===k)continue;var p2=dayPlan(d2);if(p2.after)break;
+    var busy=!!(p2.sess||p2.run);var note=busy?'уже '+p2.title.toLowerCase():((STUDY_END[wIdx(d2)]?'учёба до '+STUDY_END[wIdx(d2)]+' · ':'')+(p2.shift?'смена '+shiftTxt(p2.shift):'без смены'));
+    opts+='<button class="item" data-act="mvto" data-from="'+k+'" data-to="'+k2+'"'+(busy?' disabled style="opacity:.45"':'')+'><div class="grow"><div class="t">'+WDF[wIdx(d2)]+', '+dShort(d2)+'</div><div class="d">'+esc(note)+'</div></div>'+(busy?'':ICON.right)+'</button>';
+  }
+  openSheet('Перенести: '+p.title,'<div class="stack"><div class="field"><label for="mv-time">Время начала</label><select class="in" id="mv-time">'+timeOpts(t0,'06:00','21:30')+'</select></div><div class="lbl" style="margin:0">На какой день</div><div class="list">'+opts+'</div><p class="small muted" style="margin:0">Напоминания перестроятся сами. Дни, где уже есть тренировка, недоступны.</p></div>');
+}
+/* Предупреждение, если новое время налезает на учёбу или смену */
+function moveWarn(k2,time){
+  var d2=pd(k2),i=wIdx(d2),p2=dayPlan(d2),t=tm(time),w=[];
+  if(STUDY_END[i]&&t<tm(STUDY_END[i])+15)w.push('в этот день учёба до '+STUDY_END[i]);
+  if(p2.shift&&t+150>tm(p2.shift[0]))w.push('до смены в '+p2.shift[0]+' не останется времени на тренировку, еду и дорогу');
+  return w.length?'Внимание: '+w.join(', ')+'.':'';
+}
+function doMove(from,to,time){
+  var p=dayPlan(pd(from));
+  editDay(from,function(b){b.skip=true;b.movedTo=to;});
+  editDay(to,function(b){b.extra={sess:p.sess,run:p.run,time:time,from:from,week:p.week,title:p.title};});
+  toast('Перенесено на '+dRef(pd(to))+', '+time);
+}
+
+/* ================= Случайно начатая тренировка ================= */
+/* Один раз: всё, что было начато до старта программы (9 ноября), удаляется и не попадает в статистику.
+   Всегда: начатая и брошенная без единого подхода тренировка через 3 часа исчезает;
+   незавершённая со вчерашнего дня, но с подходами — сохраняется как выполненная. */
+function cleanupWorkouts(){
+  var now=Date.now(),todayK=ds(new Date()),startK=ds(START),first=!lsGet('hxapp.mig2',false);
+  allWorkouts().forEach(function(w){
+    var any=(w.exercises||[]).some(function(ex){return doneSets(ex).length;});
+    if(first&&w.date<startK){put('workouts',w.id,null);return;}
+    if(w.status!=='active')return;
+    var age=now-(w.updatedAt||w.startedAt||0);
+    if(!any&&age>3*3600e3)put('workouts',w.id,null);
+    else if(any&&w.date<todayK)edit('workouts',w.id,function(b){b.status='done';b.endedAt=b.updatedAt||Date.now();b.exercises=b.exercises.map(function(ex){ex.sets=ex.sets.filter(function(s){return s.done;});return ex;}).filter(function(ex){return ex.sets.length;});b.volume=workoutVolume(b);});
+  });
+  lsSet('hxapp.mig2',true);
+}
+
+/* ================= Напоминания (Web Push) ================= */
+/* Приложение считает напоминания на 6 недель вперёд по своему плану (с переносами и отменами)
+   и отправляет весь список на сервер. Сервер шлёт их вовремя, даже когда приложение закрыто.
+   Время считается по Варшаве. Ключ напоминания = тип + дата, поэтому дублей не бывает. */
+var PUSH={url:'https://hyrox-push.hyrox-push.workers.dev',key:'BGNnfoOZWRmBEvPX94X5qGcfpPEQ-l7rdm1nQ9x1oK0tgC-4GyQwvY8kd469eW6wSYKzF3rSSdcuCChZ2BFrJGE'};
+var TZ='Europe/Warsaw';
+function rndHex(n){var a=new Uint8Array(n);crypto.getRandomValues(a);return Array.from(a,function(b){return b.toString(16).padStart(2,'0');}).join('');}
+function notifyCfg(){var n=lsGet('hxapp.notify',null)||{};if(n.on==null)n.on=false;if(n.pre==null)n.pre='14:30';if(n.day==null)n.day='-90';if(!n.id){n.id=rndHex(16);n.secret=rndHex(24);lsSet('hxapp.notify',n);}return n;}
+function saveNotify(n){lsSet('hxapp.notify',n);}
+function isStandalone(){return window.navigator.standalone===true||(window.matchMedia&&matchMedia('(display-mode: standalone)').matches);}
+function pushSupport(){
+  if(window.claude)return {ok:false,why:'Напоминания работают в приложении на iPhone, открытом с экрана «Домой». Здесь, на claude.ai, их нет.'};
+  var ios=/iPhone|iPad|iPod/.test(navigator.userAgent);
+  if(ios&&!isStandalone())return {ok:false,why:'Открой приложение с иконки на экране «Домой» — в Safari напоминания недоступны.'};
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window))return {ok:false,why:'Этот браузер не поддерживает уведомления. На iPhone нужен iOS 16.4 или новее и запуск с экрана «Домой».'};
+  if(!PUSH.url||!PUSH.key)return {ok:false,why:'Сервер напоминаний ещё не подключён.'};
+  return {ok:true};
+}
+function tzOffset(ts){var f=new Intl.DateTimeFormat('en-US',{timeZone:TZ,hourCycle:'h23',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'});var p={};f.formatToParts(new Date(ts)).forEach(function(x){p[x.type]=x.value;});return Date.UTC(+p.year,+p.month-1,+p.day,(+p.hour)%24,+p.minute,+p.second)-ts;}
+/* Дата d + время «чч:мм» по Варшаве → момент времени (мс) */
+function warsawTs(d,hm){var m=/^(\d{1,2}):(\d{2})/.exec(hm);var g=Date.UTC(d.getFullYear(),d.getMonth(),d.getDate(),+m[1],+m[2]);var o1=tzOffset(g),t=g-o1,o2=tzOffset(t);return o1===o2?t:g-o2;}
+function fmtWhen(ts){try{return new Intl.DateTimeFormat('ru-RU',{timeZone:TZ,weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(ts));}catch(e){return new Date(ts).toLocaleString();}}
+function buildReminders(){
+  var n=notifyCfg(),out=[],now=Date.now(),base=new Date();
+  for(var i=0;i<=42;i++){
+    var d=addDays(base,i),k=ds(d),p=dayPlan(d);
+    if(p.after)break;
+    if(!(p.sess||p.run)||dayStatus(d)==='done')continue;
+    var tr=p.items.filter(function(x){return x.k==='train'||x.k==='run';});
+    var t0=tr.length?tr[0].t.split('–')[0]:'12:00',startTs=warsawTs(d,t0);
+    var lines=tr.map(function(x){return x.t.split('–')[0]+' — '+x.b;}).join('; ');
+    var wk=weekObj(p.week);
+    if(n.pre){var at=warsawTs(addDays(d,-1),n.pre);if(at>now)out.push({key:'pre:'+k,at:at,title:'Завтра: '+p.title,body:WDF[wIdx(d)]+', '+d.getDate()+' '+MON_G[d.getMonth()]+'. '+lines+'. '+(p.sess?'Собери форму, бутылку и еду на после тренировки.':'Кроссовки и бутылка воды.')});}
+    if(n.day){var at2=n.day.charAt(0)==='-'?startTs+Number(n.day)*60000:warsawTs(d,n.day);if(at2>now&&at2<startTs)out.push({key:'day:'+k,at:at2,title:'Сегодня в '+t0+' — '+p.title,body:lines+'. Неделя '+p.week+(wk.dl?', облегчённая':', запас '+wk.rir)+'. '+(p.sess?'Нажми «Начать» в приложении, когда будешь в зале.':'После пробежки запиши её в приложении.')});}
+  }
+  return out;
+}
+function b64ToU8(s){s=s.replace(/-/g,'+').replace(/_/g,'/');var b=atob(s+'==='.slice((s.length+3)%4)),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;}
+function pushPost(path,body){return fetch(PUSH.url+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(function(r){return r.json().catch(function(){return {};}).then(function(j){if(!r.ok)throw {msg:'Сервер ответил '+r.status+(j&&j.error?' ('+j.error+')':'')};return j;});});}
+var pushT=null;
+function queuePushSync(){if(!lsGet('hxapp.notify',{}).on)return;clearTimeout(pushT);pushT=setTimeout(function(){syncPush(false);},2500);}
+function syncPush(force){
+  var n=notifyCfg();if(!n.on||!pushSupport().ok)return Promise.resolve();
+  var sched=buildReminders(),sig=JSON.stringify(sched);
+  if(!force&&sig===lsGet('hxapp.pushsig','')&&Date.now()-(n.lastSync||0)<12*3600e3)return Promise.resolve();
+  return navigator.serviceWorker.ready.then(function(reg){return reg.pushManager.getSubscription();}).then(function(sub){
+    if(!sub)throw {msg:'Подписка на уведомления потеряна — нажми «Включить» ещё раз.'};
+    return pushPost('/sync',{id:n.id,secret:n.secret,subscription:sub.toJSON(),schedule:sched,tz:TZ});
+  }).then(function(j){var m=notifyCfg();m.lastSync=Date.now();m.lastErr=null;m.count=j.count;saveNotify(m);lsSet('hxapp.pushsig',sig);})
+  .catch(function(e){var m=notifyCfg();m.lastErr=(e&&e.msg)||'Нет связи с сервером напоминаний — попробую при следующем открытии.';saveNotify(m);});
+}
+function enablePush(){
+  var st=pushSupport();if(!st.ok){toast(st.why);return;}
+  Notification.requestPermission().then(function(perm){
+    if(perm!=='granted')throw {msg:'Уведомления не разрешены. Включи: Настройки iPhone → Уведомления → HYROX.'};
+    return navigator.serviceWorker.ready;
+  }).then(function(reg){return reg.pushManager.getSubscription().then(function(s){return s||reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToU8(PUSH.key)});});})
+  .then(function(){var n=notifyCfg();n.on=true;saveNotify(n);return syncPush(true);})
+  .then(function(){var n=notifyCfg();toast(n.lastErr?n.lastErr:'Напоминания включены');if($('#sheet-root').innerHTML&&$('#nt-box'))sheetSettings();else render();})
+  .catch(function(e){toast((e&&e.msg)||'Не удалось включить уведомления: '+((e&&e.message)||e));});
+}
+function disablePush(){
+  var n=notifyCfg();n.on=false;saveNotify(n);
+  var done=function(){toast('Напоминания выключены');if($('#nt-box'))sheetSettings();else render();};
+  if(!pushSupport().ok){done();return;}
+  navigator.serviceWorker.ready.then(function(reg){return reg.pushManager.getSubscription();}).then(function(s){return s?s.unsubscribe():null;}).catch(function(){})
+    .then(function(){return pushPost('/unsubscribe',{id:n.id,secret:n.secret}).catch(function(){});}).then(done);
+}
+function notifyHtml(){
+  var n=notifyCfg(),st=pushSupport(),h='<div id="nt-box" class="stack" style="gap:10px"><div class="lbl" style="margin:0">Напоминания о тренировках</div>';
+  if(!st.ok)return h+'<div class="note small">'+esc(st.why)+'</div></div>';
+  var perm=Notification.permission;
+  h+='<div class="note small">';
+  if(n.on&&perm==='granted')h+='<b style="color:var(--rec)">Включены.</b> '+(n.lastErr?'<span style="color:var(--danger)">'+esc(n.lastErr)+'</span>':(n.lastSync?'Расписание на сервере, напоминаний: '+(n.count||0)+'.':'Отправляю расписание…'));
+  else if(perm==='denied')h+='Уведомления запрещены в настройках iPhone. Включи: Настройки → Уведомления → HYROX → «Допуск уведомлений», затем нажми «Включить» здесь.';
+  else h+='Выключены. Напомню накануне и в день тренировки — даже когда приложение закрыто. Время — по Польше.';
+  h+='</div>';
+  var pre=[['','Не напоминать']];for(var m=tm('12:00');m<=tm('22:00');m+=30){var v=pad(Math.floor(m/60))+':'+pad(m%60);pre.push([v,'в '+v]);}
+  var day=[['','Не напоминать'],['-30','за 30 минут'],['-60','за 1 час'],['-90','за 1,5 часа'],['-120','за 2 часа'],['-180','за 3 часа'],['07:00','утром в 7:00'],['08:00','утром в 8:00'],['09:00','утром в 9:00']];
+  var sel=function(id,list,cur){return '<select class="in" id="'+id+'" data-ch="ncfg">'+list.map(function(o){return '<option value="'+o[0]+'"'+(o[0]===cur?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>';};
+  h+='<div class="grid2"><div class="field"><label for="nt-pre">Накануне</label>'+sel('nt-pre',pre,n.pre)+'</div><div class="field"><label for="nt-day">В день тренировки</label>'+sel('nt-day',day,n.day)+'</div></div>';
+  h+=(n.on&&perm==='granted')?'<div class="grid2"><button class="btn ghost" data-act="ntest">Тестовое</button><button class="btn ghost" data-act="noff">Выключить</button></div>':'<button class="btn full t-rec" data-act="non">Включить напоминания</button>';
+  if(n.on){var up=buildReminders().sort(function(a,b){return a.at-b.at;}).slice(0,3);if(up.length)h+='<div><div class="small muted" style="margin-bottom:4px">Ближайшие</div>'+up.map(function(x){return '<div class="row between small" style="padding:3px 0;gap:12px"><span>'+esc(x.title)+'</span><span class="mono muted" style="white-space:nowrap">'+esc(fmtWhen(x.at))+'</span></div>';}).join('')+'</div>';}
+  return h+'</div>';
+}
+/* Короткая подсказка на главном экране, пока напоминания не включены */
+function notifyNudge(){
+  var n=notifyCfg();if(n.on||lsGet('hxapp.ntnudge',false)||!pushSupport().ok||Notification.permission==='denied')return '';
+  return '<div class="card"><div class="row between" style="align-items:flex-start"><div><b>Напоминания о тренировках</b><div class="small muted" style="margin-top:2px">Накануне и в день тренировки, даже когда приложение закрыто.</div></div></div><div class="grid2" style="margin-top:10px"><button class="btn sm t-rec" data-act="non">Включить</button><button class="btn sm ghost" data-act="nnudge">Не сейчас</button></div></div>';
+}
+
 /* ================= Действия ================= */
 var A={
   tab:function(el){tab=el.dataset.tab;if(tab==='plan')ui.planWeek=null;lsSet('hxapp.tab',tab);render();window.scrollTo(0,0);},
   settings:function(){sheetSettings();},
   sclose:function(){closeSheet();},
   confirmyes:function(){var f=pendingConfirm;pendingConfirm=null;closeSheet();if(f)f();},
-  startw:function(el){ensureAudio();if($('#sheet-root').innerHTML)closeSheet();startWorkout(el.dataset.sess);},
+  startw:function(el){ensureAudio();var L=el.dataset.sess,tp=dayPlan(new Date());if($('#sheet-root').innerHTML)closeSheet();
+    if(tp.sess===L){startWorkout(L);return;}
+    confirmSheet('Начать '+(L==='free'?'свою тренировку':'Силу '+L)+'?',(tp.sess?'По плану сегодня — Сила '+tp.sess+'. ':'По плану сегодня силовой нет. ')+'Если нажал случайно — нажми «Назад».','Начать',function(){startWorkout(L);},'t-train');},
+  wresume:function(){ui.inWorkout=true;ui.exOpen=null;render();window.scrollTo(0,0);},
+  wmin:function(){ui.inWorkout=false;render();window.scrollTo(0,0);},
+  mvopen:function(el){sheetMove(el.dataset.d);},
+  mvto:function(el){if(el.disabled)return;var from=el.dataset.from,to=el.dataset.to,time=$('#mv-time').value,w=moveWarn(to,time);var go=function(){doMove(from,to,time);};if(w)confirmSheet('Перенести на это время?',w+' Всё равно перенести?','Перенести',go,'t-rec');else{closeSheet();go();}},
+  skipday:function(el){var k=el.dataset.d,p=dayPlan(pd(k));confirmSheet('Отменить тренировку?',p.title+' — '+dWd(pd(k))+'. Напоминания о ней не придут. Вернуть можно в любой момент.','Отменить тренировку',function(){editDay(k,function(b){b.skip=true;delete b.movedTo;});toast('Тренировка отменена');});},
+  unskip:function(el){var k=el.dataset.d,dd=S.data.days[k],to=dd&&dd.movedTo;editDay(k,function(b){b.skip=false;delete b.movedTo;});if(to)editDay(to,function(b){delete b.extra;});toast('Тренировка вернулась по плану');},
+  unmove:function(el){var k=el.dataset.d,dd=S.data.days[k],from=dd&&dd.extra&&dd.extra.from;editDay(k,function(b){delete b.extra;});if(from)editDay(from,function(b){b.skip=false;delete b.movedTo;});toast('Тренировка вернулась на свой день');},
+  non:function(){enablePush();},
+  noff:function(){disablePush();},
+  nnudge:function(){lsSet('hxapp.ntnudge',true);render();},
+  ntest:function(){var n=notifyCfg();pushPost('/test',{id:n.id,secret:n.secret}).then(function(j){toast(j.ok?'Отправил — уведомление придёт через несколько секунд':'Сервер не смог отправить: '+j.status);}).catch(function(e){toast((e&&e.msg)||'Нет связи с сервером');});},
   runadd:function(el){sheetRun(null,el.dataset.date||null);},
   foodadd:function(){sheetFoodAdd();},
   feel:function(el){var v=el.dataset.v,d=ds(new Date());editDay(d,function(b){var c=b.check||{};c.level=c.level===v?null:v;b.check=c;});},
@@ -1205,11 +1375,11 @@ var A={
   delset:function(el){var wk=activeWorkout();var i=Number(el.dataset.i);edit('workouts',wk.id,function(b){b.exercises[i].sets.pop();});},
   addex:function(){sheetAddEx();},
   addexpick:function(el){var wk=activeWorkout();var k=el.dataset.ex;var lp=lastPerf(k,wk.id);closeSheet();edit('workouts',wk.id,function(b){var sets=[];for(var i=0;i<3;i++)sets.push({w:lp?lp.sets[0].w:null,r:null,rir:null,done:false});b.exercises.push({exId:k,name:EX[k].name,target:'3 подхода',rest:'1,5 мин',restSec:90,unit:'повт',lo:null,hi:null,note:'',sugg:null,sets:sets});});},
-  wcancel:function(){var wk=activeWorkout();confirmSheet('Отменить тренировку?','Все отмеченные подходы этой тренировки будут удалены.','Отменить тренировку',function(){stopTimer();put('workouts',wk.id,null);});},
+  wcancel:function(){var wk=activeWorkout();confirmSheet('Отменить тренировку?','Все отмеченные подходы этой тренировки будут удалены.','Отменить тренировку',function(){stopTimer();ui.inWorkout=false;put('workouts',wk.id,null);toast('Тренировка отменена и не попадёт в статистику');});},
   wfinish:function(){
     var wk=activeWorkout();if(!wk)return;var any=(wk.exercises||[]).some(function(ex){return doneSets(ex).length;});
     if(!any){toast('Отметь хотя бы один подход галочкой.');return;}
-    stopTimer();
+    stopTimer();ui.inWorkout=false;
     edit('workouts',wk.id,function(b){b.status='done';b.endedAt=Date.now();b.exercises=b.exercises.map(function(ex){ex.sets=ex.sets.filter(function(s){return s.done;});return ex;}).filter(function(ex){return ex.sets.length;});b.volume=workoutVolume(b);});
     var done=S.data.workouts[wk.id];var dur=Math.round((done.endedAt-done.startedAt)/60000);
     openSheet('Тренировка завершена','<div class="kv"><div class="kpi"><div class="l">Длительность</div><div class="v">'+dur+' мин</div></div><div class="kpi"><div class="l">Тоннаж</div><div class="v">'+(done.volume||0).toLocaleString('ru-RU')+' кг</div></div></div><p class="small muted" style="margin-top:10px">В течение часа — еда с белком и углеводами. Вечером 15 минут восстановления: массажный пистолет и растяжка.</p><button class="btn full t-train" data-act="sclose">Готово</button>');
@@ -1254,6 +1424,7 @@ var A={
 var CH={
   weight:function(el){var v=num(el.value);var d=el.dataset.date;if(v!=null&&(v<30||v>200)){toast('Проверь вес: '+el.value);return;}editDay(d,function(b){b.weight=v;});},
   set:function(el){var wk=activeWorkout();if(!wk)return;var i=Number(el.dataset.i),j=Number(el.dataset.j),f=el.dataset.f;var v=f==='rir'?(el.value===''?null:Number(el.value)):num(el.value);edit('workouts',wk.id,function(b){b.exercises[i].sets[j][f]=v;});},
+  ncfg:function(){var n=notifyCfg();n.pre=$('#nt-pre').value;n.day=$('#nt-day').value;saveNotify(n);if(n.on)syncPush(true).then(function(){var m=notifyCfg();toast(m.lastErr||'Время напоминаний сохранено');});else toast('Сохранено');},
   wnotes:function(el){var wk=activeWorkout();if(!wk)return;edit('workouts',wk.id,function(b){b.notes=el.value;});},
   import:function(el){
     var f=el.files&&el.files[0];if(!f)return;var rd=new FileReader();
@@ -1268,7 +1439,11 @@ document.addEventListener('input',function(e){var el=e.target;if(!el.dataset)ret
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&$('#sheet-root').innerHTML)closeSheet();});
 
 /* ================= Запуск ================= */
-loadCache();render();
+loadCache();cleanupWorkouts();
+(function(){var a0=activeWorkout();ui.inWorkout=!!(a0&&Date.now()-(a0.updatedAt||a0.startedAt||0)<30*60000);})();
+render();
+setTimeout(function(){syncPush(false);},1500);
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'){syncPush(false);requestRender();}});
 /* Раз в 30 секунд: минуты тренировки, а на главном экране — отметка «сейчас» в распорядке */
 setInterval(function(){if(tab!=='home'||isEditing()||$('#sheet-root').innerHTML)return;var wk=activeWorkout();if(wk){var el=$('#wk-min');if(el)el.textContent=Math.round((Date.now()-wk.startedAt)/60000);}else render();},30000);
 (function(){

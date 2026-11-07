@@ -1,5 +1,5 @@
 // Кэш приложения для работы без интернета. Версия меняется при каждой сборке.
-const CACHE = 'hyrox-202611071254';
+const CACHE = 'hyrox-202611072254';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
@@ -24,4 +24,20 @@ self.addEventListener('fetch', e => {
   if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
     e.respondWith(caches.open(CACHE).then(c => c.match(req).then(r => r || fetch(req).then(res => { c.put(req, res.clone()); return res; }))));
   }
+});
+// Напоминания о тренировках: сервер присылает push, здесь он превращается в уведомление.
+self.addEventListener('push', e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (_) { d = { body: e.data ? e.data.text() : '' }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'Трекер HYROX', {
+    body: d.body || '', tag: d.tag || 'hyrox', icon: 'icon-192.png', badge: 'icon-192.png', data: { url: d.url || './' }
+  }));
+});
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const target = new URL((e.notification.data && e.notification.data.url) || './', self.registration.scope).href;
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+    for (const c of list) { if ('focus' in c) return c.focus(); }
+    return self.clients.openWindow(target);
+  }));
 });
